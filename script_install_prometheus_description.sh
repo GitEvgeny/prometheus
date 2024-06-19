@@ -12,12 +12,12 @@ PROMETHEUS_FOLDER_TSDATA="/var/lib/prometheus"
 # Переменная определения и хранения дистрибутива:
 OS=$(awk -F= '/^ID=/{gsub(/"/, "", $2); print $2}' /etc/os-release)
 
-# Выбор ОС для установки необходимых пакетов для Prometheus.
+# Выбор ОС для установки необходимых пакетов.
 check_os() {
   if [ "$OS" == "ubuntu" ]; then
-      installing_packages_ubuntu
+      packages_firewall_ubuntu
   elif [ "$OS" == "almalinux" ]; then
-      installing_packages_almalinux
+      packages_firewall_almalinux
   else
       echo "Скрипт не поддерживает установленную ОС: $OS"
       # Выход из скрипта с кодом 1.
@@ -25,20 +25,24 @@ check_os() {
   fi
 }
 
-# Функция установки необходимых пакетов для Prometheus на Ubuntu:
-installing_packages_ubuntu() {
+# Функция установки необходимых пакетов и настройки firewall на Ubuntu:
+packages_firewall_ubuntu() {
   # Обновить список доступных пакетов.
   sudo apt update
   # Установить wget и tar.
   sudo apt -y install wget tar
 }
 
-# Функция установки необходимых пакетов для Prometheus на AlmaLinux:
-installing_packages_almalinux() {
+# Функция установки необходимых пакетов и настройки firewall на AlmaLinux:
+packages_firewall_almalinux() {
   # Обновить список доступных пакетов.
   sudo dnf -y update
   # Установить wget и tar.
   sudo dnf -y install wget tar
+  # Открыть порт 9090.
+  sudo firewall-cmd --permanent --add-port=9090/tcp
+  # Перезагрузить firewall-cmd для применения и сохранения настроек.
+  sudo firewall-cmd --reload
 }
 
 # Функция подготовки почвы:
@@ -147,19 +151,15 @@ start_enable_prometheus() {
   sudo systemctl enable prometheus
 }
 
-# Функция проверки наличия SELinux:
-check_selinux() {
-  # Данная проверка необходима для Almalinux, т.к. там по умолчанию SELinux установлен и включен.
-  # И SELinux мешает работе Prometheus, чтобы не было ошибок проходим проверку и отключаем:
-  if sestatus &> /dev/null; then
-    echo "SELinux установлен и активен в системе."
-    # Переключить режим SELinux на: Permissive (Разрешающий)
-    sudo setenforce 0
-    # Перезапуск Prometheus.
-    sudo systemctl restart prometheus
-    echo "SELinux переведён в режим: Permissive (Разрешающий)."
-    else
-    echo "SELinux не установлен или не активен в системе."
+# Функция отключения SELinux:
+disable_selinux() {
+  # Проверка, существует ли файл конфигурации SELinux
+  if [ -f /etc/selinux/config ]; then
+    # Изменение строки SELINUX= на SELINUX=disabled
+    sudo sed -i 's/^SELINUX=.*/SELINUX=disabled/' /etc/selinux/config  
+    echo "SELinux был отключен. Перезагрузите систему для применения изменений."
+  else
+    echo "Файл конфигурации SELinux не найден."
   fi
 }
 
@@ -180,7 +180,7 @@ main() {
   create_prometheus_config
   create_unit_prometheus
   start_enable_prometheus
-  check_selinux
+  disable_selinux
   check_status_prometheus
 }
 

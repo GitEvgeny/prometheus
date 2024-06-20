@@ -143,7 +143,7 @@ EOF
 
 # Запуск и включение Prometheus:
 start_enable_prometheus() {
-  # Перезапуск все сервисов.
+  # Перезапуск всех сервисов.
   sudo systemctl daemon-reload
   # Запуск Prometheus.
   sudo systemctl start prometheus
@@ -172,7 +172,7 @@ check_status_prometheus() {
   echo "Prometheus успешно установлен и настроен на $OS."
 }
 
-# Создание функций main
+# Создание функций main.
 main() {
   check_os
   preparation
@@ -184,6 +184,6 @@ main() {
   check_status_prometheus
 }
 
-# Вызов функции main
+# Вызов функции main.
 main
 
